@@ -2,22 +2,22 @@
   const profiles = {
     balanced: {
       id: 'balanced',
-      stripThreshold: 60,
-      topThreshold: 80,
+      stripThreshold: 36,
+      topThreshold: 50,
       stripCount: 7,
       description: 'Default paper-tearing feel.'
     },
     soft: {
       id: 'soft',
-      stripThreshold: 52,
-      topThreshold: 72,
+      stripThreshold: 28,
+      topThreshold: 42,
       stripCount: 7,
       description: 'Easier pull and lighter interactions.'
     },
     tough: {
       id: 'tough',
-      stripThreshold: 74,
-      topThreshold: 96,
+      stripThreshold: 48,
+      topThreshold: 62,
       stripCount: 7,
       description: 'Harder pull for challenge mode.'
     }

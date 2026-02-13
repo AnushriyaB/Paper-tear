@@ -549,72 +549,79 @@ function playTear({ intensity = 0.6, speed = 0.4, direction = 0 } = {}) {
   const s = clamp(speed, 0, 1);
   const dir = clamp(direction, -1, 1);
 
-  // Main body — warm, soft paper tear
+  // Soft, pleasing paper rustle — gentle envelope, warm mid tone
   const src = ctx.createBufferSource();
   src.buffer = nb;
-  src.playbackRate.value = 0.55 + s * 0.45 + Math.random() * 0.12;
+  src.playbackRate.value = 0.68 + s * 0.28 + Math.random() * 0.08;
   const env = ctx.createGain();
   env.gain.setValueAtTime(0, now);
-  const peak = 0.08 + i * 0.09;
-  const sustain = 0.03 + i * 0.05;
-  const decay = 0.35 - s * 0.06;
-  env.gain.linearRampToValueAtTime(peak, now + 0.018);
-  env.gain.setValueAtTime(peak, now + 0.05);
-  env.gain.exponentialRampToValueAtTime(sustain, now + 0.15);
+  const peak = 0.038 + i * 0.045;
+  const sustain = 0.012 + i * 0.022;
+  const decay = 0.32 - s * 0.04;
+  env.gain.linearRampToValueAtTime(peak, now + 0.032);
+  env.gain.setValueAtTime(peak, now + 0.07);
+  env.gain.exponentialRampToValueAtTime(sustain, now + 0.16);
   env.gain.exponentialRampToValueAtTime(0.001, now + decay);
+  const hp = ctx.createBiquadFilter();
+  hp.type='highpass';
+  hp.frequency.value = 380 + s * 90;
   const f1 = ctx.createBiquadFilter();
   f1.type='bandpass';
-  f1.frequency.value = 420 + s * 550 + Math.random() * 140;
-  f1.Q.value = 0.7 + i * 0.5;
+  f1.frequency.value = 680 + s * 420 + Math.random() * 100;
+  f1.Q.value = 0.55 + i * 0.28;
   const f2 = ctx.createBiquadFilter();
-  f2.type='highshelf';
-  f2.frequency.value = 2200 + s * 600;
-  f2.gain.value = -10 + i * 2;
+  f2.type='lowshelf';
+  f2.frequency.value = 1200;
+  f2.gain.value = -2 + i * 0.8;
+  const f3 = ctx.createBiquadFilter();
+  f3.type='highshelf';
+  f3.frequency.value = 3200 + s * 400;
+  f3.gain.value = -6 + i * 1;
 
-  // Subtle crackle — soft fiber noise
-  const crLen = ctx.sampleRate*0.25;
+  // Delicate fiber rustle
+  const crLen = ctx.sampleRate * 0.22;
   const crBuf = ctx.createBuffer(1, crLen, ctx.sampleRate);
   const crD = crBuf.getChannelData(0);
-  const crackleChance = 0.975 - i * 0.04 - s * 0.015;
+  const crackleChance = 0.982 - i * 0.03 - s * 0.01;
   for (let j = 0; j < crLen; j++) {
     const t = j / crLen;
-    if (Math.random() > crackleChance) crD[j] = (Math.random() - 0.5) * Math.pow(1 - t, 1.5) * (0.5 + i * 0.4);
+    if (Math.random() > crackleChance) crD[j] = (Math.random() - 0.5) * Math.pow(1 - t, 1.8) * (0.28 + i * 0.22);
   }
   const crSrc = ctx.createBufferSource(); crSrc.buffer = crBuf;
-  const crG = ctx.createGain(); crG.gain.value = 0.02 + i * 0.05;
+  const crG = ctx.createGain(); crG.gain.value = 0.012 + i * 0.02;
   const crF = ctx.createBiquadFilter();
   crF.type='bandpass';
-  crF.frequency.value = 1400 + s * 700;
-  crF.Q.value = 0.35 + i * 0.3;
+  crF.frequency.value = 1500 + s * 550;
+  crF.Q.value = 0.28 + i * 0.2;
 
-  // Gentle snap transient — soft thud instead of sharp click
-  const snapLen = ctx.sampleRate*0.05;
+  // Barely-there soft click (pleasant, not sharp)
+  const snapLen = ctx.sampleRate * 0.04;
   const snapBuf = ctx.createBuffer(1, snapLen, ctx.sampleRate);
   const snapD = snapBuf.getChannelData(0);
-  for (let j=0;j<snapLen;j++) {
-    const t=j/snapLen;
-    snapD[j]=(Math.random()*2-1)*Math.pow(1-t,5)*0.3;
+  for (let j = 0; j < snapLen; j++) {
+    const t = j / snapLen;
+    snapD[j] = (Math.random() * 2 - 1) * Math.pow(1 - t, 6) * 0.14;
   }
-  const snapSrc = ctx.createBufferSource(); snapSrc.buffer=snapBuf;
+  const snapSrc = ctx.createBufferSource(); snapSrc.buffer = snapBuf;
   const snapG = ctx.createGain();
-  const snapF = ctx.createBiquadFilter(); snapF.type='bandpass'; snapF.frequency.value=600;
-  snapG.gain.value = 0.03 + s * 0.04;
-  snapF.frequency.value = 400 + s * 400;
+  const snapF = ctx.createBiquadFilter(); snapF.type='bandpass'; snapF.frequency.value = 1100;
+  snapG.gain.value = 0.008 + s * 0.01;
+  snapF.frequency.value = 700 + s * 250;
   snapF.Q.value = 0.6;
 
   const panner = typeof ctx.createStereoPanner === 'function' ? ctx.createStereoPanner() : null;
   if (panner) {
-    panner.pan.value = dir * 0.35;
-    src.connect(f1).connect(f2).connect(env).connect(panner).connect(ctx.destination);
+    panner.pan.value = dir * 0.28;
+    src.connect(hp).connect(f1).connect(f2).connect(f3).connect(env).connect(panner).connect(ctx.destination);
     crSrc.connect(crF).connect(crG).connect(panner);
     snapSrc.connect(snapF).connect(snapG).connect(panner);
   } else {
-    src.connect(f1).connect(f2).connect(env).connect(ctx.destination);
+    src.connect(hp).connect(f1).connect(f2).connect(f3).connect(env).connect(ctx.destination);
     crSrc.connect(crF).connect(crG).connect(ctx.destination);
     snapSrc.connect(snapF).connect(snapG).connect(ctx.destination);
   }
-  src.start(now, Math.random()*1.5, 0.45); crSrc.start(now); snapSrc.start(now);
-  src.stop(now+0.45); crSrc.stop(now+0.3); snapSrc.stop(now+0.06);
+  src.start(now, Math.random() * 1.2, 0.35); crSrc.start(now); snapSrc.start(now);
+  src.stop(now + 0.35); crSrc.stop(now + 0.25); snapSrc.stop(now + 0.045);
 }
 
 function playWhoosh() {
@@ -748,7 +755,7 @@ function spawnFall(rect,color,dirX,rot) {
 // ═══════════════════════════════════════
 const activeTearProfile = (window.TearProfiles && window.TearProfiles.getDefaultProfile)
   ? window.TearProfiles.getDefaultProfile()
-  : { stripThreshold: 60, topThreshold: 80, stripCount: 7 };
+  : { stripThreshold: 36, topThreshold: 50, stripCount: 7 };
 const TOTAL=10, STRIPS=activeTearProfile.stripCount, THRESHOLD=activeTearProfile.stripThreshold, TOP_THRESHOLD=activeTearProfile.topThreshold;
 const STACK_FULL = { x: 1.2, y: 1.8, size: 0.5 };
 const STACK_THIN = { x: 0.12, y: 0.18, size: 0.04 };
