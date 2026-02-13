@@ -22,6 +22,7 @@
         rgba(148,85,52,0.05) 4px
       ),
       #8B4A2B;
+    --notebook-w: min(460px, calc(100vw - 24px), calc((100vh - 250px) / 1.26087));
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -37,7 +38,8 @@
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     font-family: 'DotGothic16', monospace;
     image-rendering: pixelated;
   }
@@ -46,7 +48,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    width: 460px;
+    width: var(--notebook-w);
     margin-bottom: 14px;
     z-index: 90;
     position: relative;
@@ -56,6 +58,8 @@
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     box-shadow: 0 4px 14px rgba(45,45,37,0.08);
+    gap: 8px;
+    flex-wrap: wrap;
   }
 
   .counter-text {
@@ -128,8 +132,9 @@
 
   .frame-wrapper {
     position: relative;
-    width: 460px;
-    height: 580px;
+    width: var(--notebook-w);
+    aspect-ratio: 460 / 580;
+    height: auto;
     margin-top: 28px;
     z-index: 30;
   }
@@ -265,6 +270,7 @@
     flex-shrink: 0;
     cursor: default;
     pointer-events: auto;
+    touch-action: none;
   }
 
   .paper-top h1 {
@@ -310,6 +316,7 @@
     will-change: transform, opacity, box-shadow, filter;
     /* Re-enable events on actual strip pieces only */
     pointer-events: auto;
+    touch-action: none;
   }
   .strip-slot:last-child .strip { border-right: none; }
   .strip.torn {
@@ -382,6 +389,53 @@
     letter-spacing: 2px;
     opacity: 0.5;
     z-index: 90;
+  }
+
+  @media (max-width: 768px) {
+    :root {
+      --notebook-w: min(440px, calc(100vw - 16px), calc((100vh - 200px) / 1.26087));
+    }
+    .archive-wall {
+      height: 98px;
+      top: 4px;
+      left: 6px;
+      right: 6px;
+      gap: 6px;
+      padding: 4px;
+    }
+    .archive-item {
+      width: 66px;
+      height: 84px;
+      opacity: 0.72;
+    }
+    .top-bar {
+      margin-top: 102px;
+      margin-bottom: 8px;
+      padding: 6px 8px;
+    }
+    .counter-text {
+      font-size: 12px;
+    }
+    .counter-text span {
+      font-size: 13px;
+    }
+    .tear-all-btn {
+      padding: 5px 8px;
+      font-size: 9px;
+    }
+    .reset-btn {
+      padding: 5px 10px;
+      font-size: 11px;
+      letter-spacing: 1px;
+    }
+    .frame-wrapper {
+      margin-top: 8px;
+    }
+    .hint {
+      margin-top: 8px;
+      font-size: 9px;
+      letter-spacing: 1px;
+    }
   }
 
   .completion-board {
@@ -698,6 +752,8 @@ const activeTearProfile = (window.TearProfiles && window.TearProfiles.getDefault
 const TOTAL=10, STRIPS=activeTearProfile.stripCount, THRESHOLD=activeTearProfile.stripThreshold, TOP_THRESHOLD=activeTearProfile.topThreshold;
 const STACK_FULL = { x: 1.2, y: 1.8, size: 0.5 };
 const STACK_THIN = { x: 0.12, y: 0.18, size: 0.04 };
+let notebookWidth = 460;
+let notebookHeight = 580;
 let tornCount=0;
 const COLORS=[
   '#E2D6C8', // blanket
@@ -729,12 +785,22 @@ let completionTimer = null;
 function updateCount() { document.getElementById('cNum').textContent=tornCount; }
 function isNotebookComplete() { return layerState.every(s => s.topTorn); }
 
+function syncNotebookSize() {
+  const wrapper = document.getElementById('frameWrapper');
+  if (!wrapper) return;
+  const rect = wrapper.getBoundingClientRect();
+  if (rect.width > 0 && rect.height > 0) {
+    notebookWidth = rect.width;
+    notebookHeight = rect.height;
+  }
+}
+
 function getLayerGeometry(li, stackMode = STACK_FULL) {
   return {
     left: li * stackMode.x,
     top: li * stackMode.y,
-    width: 460 - li * stackMode.size,
-    height: 580 - li * stackMode.size
+    width: notebookWidth - li * stackMode.size,
+    height: notebookHeight - li * stackMode.size
   };
 }
 
@@ -1010,6 +1076,7 @@ function buildSpiral() {
 }
 
 function buildNotebook(frame) {
+  syncNotebookSize();
   frame.innerHTML='';
   tornCount=0; updateCount();
   fallingPieces=[];
@@ -1347,7 +1414,14 @@ document.getElementById('tearAllBtn').addEventListener('click', () => {
 // INIT
 // ═══════════════════════════════════════
 buildSpiral();
+syncNotebookSize();
 buildNotebook(document.getElementById('frame'));
+
+window.addEventListener('resize', () => {
+  syncNotebookSize();
+  if (activeDrag || isArchiving) return;
+  applyNotebookThickness(completionShown ? 'thin' : 'full');
+});
 </script>
 </body>
 </html>
