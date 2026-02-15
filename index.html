@@ -701,20 +701,29 @@ function resizeFC() { fallCanvas.width=window.innerWidth; fallCanvas.height=wind
 resizeFC(); window.addEventListener('resize', resizeFC);
 
 class FallingPiece {
-  constructor(x,y,w,h,color,rot,dirX) {
+  constructor(x,y,w,h,color,rot,dirX,floorY) {
     this.x=x; this.y=y; this.w=w; this.h=h;
     this.color=color; this.rot=rot;
+    this.floorY=floorY ?? null;
+    this.landed=false;
     this.vx=dirX*(2+Math.random()*3); this.vy=-2+Math.random()*2;
     this.vr=(Math.random()-0.5)*5; this.alive=true;
     this.jaggedEdge=[];
     for (let px=0;px<=w;px+=3) this.jaggedEdge.push(Math.random()*8);
   }
   update() {
+    if (this.landed) return;
+    if (this.floorY!=null && this.y+this.h/2>=this.floorY) {
+      this.landed=true;
+      this.vy=0; this.vx=0; this.vr=0;
+      this.y=this.floorY-this.h/2;
+      return;
+    }
     this.vy+=0.28; this.vx*=0.992;
     this.vx+=Math.sin(this.y*0.015)*0.12;
     this.x+=this.vx; this.y+=this.vy;
     this.rot+=this.vr; this.vr*=0.997;
-    if (this.y > window.innerHeight+50) this.alive=false;
+    if (this.floorY==null && this.y>window.innerHeight+50) this.alive=false;
   }
   draw(ctx) {
     ctx.save();
@@ -746,8 +755,8 @@ function animLoop() {
 }
 animLoop();
 
-function spawnFall(rect,color,dirX,rot) {
-  fallingPieces.push(new FallingPiece(rect.left,rect.top,rect.width,rect.height,color,rot||0,dirX));
+function spawnFall(rect,color,dirX,rot,floorY) {
+  fallingPieces.push(new FallingPiece(rect.left,rect.top,rect.width,rect.height,color,rot||0,dirX,floorY));
 }
 
 // ═══════════════════════════════════════
@@ -965,8 +974,10 @@ async function archiveCurrentNotebook({ completed = false, animateFly = true } =
     clearTimeout(completionTimer);
     completionTimer = null;
   }
-
-  if (completed) showCompletionBoard();
+  if (completed) {
+    fallingPieces = [];
+    showCompletionBoard();
+  }
 
   const wrapper = document.getElementById('frameWrapper');
   if (!wrapper) {
@@ -993,39 +1004,68 @@ async function archiveCurrentNotebook({ completed = false, animateFly = true } =
 function tearAllForTesting() {
   if (isArchiving || activeDrag) return;
   const frame = document.getElementById('frame');
-  if (!frame) return;
+  const wrapper = document.getElementById('frameWrapper');
+  if (!frame || !wrapper) return;
   stopCrinkle();
   if (completionTimer) {
     clearTimeout(completionTimer);
     completionTimer = null;
   }
-
-  frame.querySelectorAll('.strip').forEach(el => {
-    el.classList.remove('dragging', 'tearing', 'held');
-    el.classList.add('torn');
-    el.style.cssText = '';
-  });
-  frame.querySelectorAll('.paper-top').forEach(el => {
-    el.classList.remove('dragging');
-    el.classList.add('torn');
-    el.style.display = 'none';
-  });
-  frame.querySelectorAll('.tear-line').forEach(el => {
-    el.style.display = 'none';
-  });
-
+  // Build ordered list: top sheet first (front to back), top then strips per layer (80 items)
+  const items = [];
   for (let li = 0; li < TOTAL; li++) {
-    layerState[li].stripsTorn.fill(true);
-    layerState[li].allStripsTorn = true;
-    layerState[li].topTorn = true;
+    const layer = frame.querySelector(`.paper-layer[data-layer="${li}"]`);
+    if (!layer) continue;
+    const top = layer.querySelector('.paper-top');
+    if (top && !top.classList.contains('torn')) {
+      items.push({ el: top, li, isTop: true });
+    }
+    const zone = layer.querySelector('.strips-zone');
+    if (zone) {
+      zone.querySelectorAll('.strip').forEach(strip => {
+        if (strip.classList.contains('torn')) return;
+        const si = parseInt(strip.dataset.strip, 10);
+        items.push({ el: strip, li, si, isTop: false });
+      });
+    }
   }
-  tornCount = TOTAL * (STRIPS + 1);
-  updateCount();
 
-  showCompletionBoard();
+  const STAGGER_MS = 42;
+  const DONE_DELAY_MS = 800;
+
+  items.forEach((item, index) => {
+    setTimeout(() => {
+      const rect = item.el.getBoundingClientRect();
+      const color = COLORS[item.li];
+      const dirX = index % 2 === 0 ? 1 : -1;
+
+      item.el.classList.remove('dragging', 'tearing', 'held');
+      item.el.classList.add('torn');
+      item.el.style.cssText = '';
+      if (item.isTop) {
+        item.el.style.display = 'none';
+        const tl = frame.querySelector(`.tear-line[data-layer="${item.li}"]`);
+        if (tl) tl.style.display = 'none';
+        layerState[item.li].topTorn = true;
+        layerState[item.li].allStripsTorn = true;
+      } else {
+        layerState[item.li].stripsTorn[item.si] = true;
+      }
+      tornCount++;
+      updateCount();
+
+      spawnFall(rect, color, dirX, 0);
+    }, index * STAGGER_MS);
+  });
+
+  const totalDuration = items.length * STAGGER_MS + DONE_DELAY_MS;
   completionTimer = setTimeout(() => {
-    archiveCurrentNotebook({ completed: true, animateFly: true });
-  }, 2000);
+    applyNotebookThickness('thin');
+    showCompletionBoard();
+    completionTimer = setTimeout(() => {
+      archiveCurrentNotebook({ completed: true, animateFly: true });
+    }, 2000);
+  }, totalDuration);
 }
 
 function isStripExposed(li,si) {
