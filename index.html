@@ -22,7 +22,7 @@
         rgba(148,85,52,0.05) 4px
       ),
       #8B4A2B;
-    --notebook-w: min(460px, calc(100vw - 24px), calc((100vh - 250px) / 1.26087));
+    --notebook-w: min(520px, calc(100vw - 24px), calc((100vh - 250px) / 1.26087));
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -49,6 +49,7 @@
     align-items: center;
     justify-content: space-between;
     width: var(--notebook-w);
+    margin-top: 24px;
     margin-bottom: 14px;
     z-index: 90;
     position: relative;
@@ -113,6 +114,9 @@
     background: rgba(180,141,84,0.32);
     border-color: rgba(124,122,88,0.8);
   }
+  .tear-all-btn.stashed {
+    display: none !important;
+  }
   .reset-btn::before {
     content: '';
     position: absolute;
@@ -133,7 +137,7 @@
   .frame-wrapper {
     position: relative;
     width: var(--notebook-w);
-    aspect-ratio: 460 / 580;
+    aspect-ratio: 520 / 656;
     height: auto;
     margin-top: 28px;
     z-index: 30;
@@ -393,7 +397,7 @@
 
   @media (max-width: 768px) {
     :root {
-      --notebook-w: min(440px, calc(100vw - 16px), calc((100vh - 200px) / 1.26087));
+      --notebook-w: min(500px, calc(100vw - 16px), calc((100vh - 200px) / 1.26087));
     }
     .archive-wall {
       height: 98px;
@@ -494,17 +498,18 @@
 
 <div class="archive-wall" id="archiveWall"></div>
 
-<div class="top-bar">
-  <div class="counter-text">Paper torn <span id="cNum">0</span></div>
-  <div class="top-actions">
-    <button class="tear-all-btn" id="tearAllBtn">TEAR ALL</button>
-    <button class="reset-btn" id="resetBtn">다시 놓기 [reset]</button>
-  </div>
-</div>
-
 <div class="frame-wrapper" id="frameWrapper">
   <div class="spiral-binding" id="spiralBinding"></div>
   <div class="frame" id="frame"></div>
+</div>
+
+<div class="top-bar">
+  <div class="counter-text">Paper torn <span id="cNum">0</span></div>
+  <div class="top-actions">
+    <!-- TEAR ALL stashed (button hidden, logic commented in script) -->
+    <button class="tear-all-btn stashed" id="tearAllBtn" aria-hidden="true">TEAR ALL</button>
+    <button class="reset-btn" id="resetBtn">다시 놓기 [reset]</button>
+  </div>
 </div>
 
 <div class="hint">↓ pull strips down ↓</div>
@@ -768,8 +773,8 @@ const activeTearProfile = (window.TearProfiles && window.TearProfiles.getDefault
 const TOTAL=10, STRIPS=activeTearProfile.stripCount, THRESHOLD=activeTearProfile.stripThreshold, TOP_THRESHOLD=activeTearProfile.topThreshold;
 const STACK_FULL = { x: 1.2, y: 1.8, size: 0.5 };
 const STACK_THIN = { x: 0.12, y: 0.18, size: 0.04 };
-let notebookWidth = 460;
-let notebookHeight = 580;
+let notebookWidth = 520;
+let notebookHeight = 656;
 let tornCount=0;
 const COLORS=[
   '#E2D6C8', // blanket
@@ -1001,6 +1006,7 @@ async function archiveCurrentNotebook({ completed = false, animateFly = true } =
   isArchiving = false;
 }
 
+/* TEAR ALL feature stashed (restore by uncommenting and removing .stashed from #tearAllBtn)
 function tearAllForTesting() {
   if (isArchiving || activeDrag) return;
   const frame = document.getElementById('frame');
@@ -1011,7 +1017,6 @@ function tearAllForTesting() {
     clearTimeout(completionTimer);
     completionTimer = null;
   }
-  // Build ordered list: top sheet first (front to back), top then strips per layer (80 items)
   const items = [];
   for (let li = 0; li < TOTAL; li++) {
     const layer = frame.querySelector(`.paper-layer[data-layer="${li}"]`);
@@ -1029,16 +1034,13 @@ function tearAllForTesting() {
       });
     }
   }
-
   const STAGGER_MS = 42;
   const DONE_DELAY_MS = 800;
-
   items.forEach((item, index) => {
     setTimeout(() => {
       const rect = item.el.getBoundingClientRect();
       const color = COLORS[item.li];
       const dirX = index % 2 === 0 ? 1 : -1;
-
       item.el.classList.remove('dragging', 'tearing', 'held');
       item.el.classList.add('torn');
       item.el.style.cssText = '';
@@ -1053,11 +1055,9 @@ function tearAllForTesting() {
       }
       tornCount++;
       updateCount();
-
       spawnFall(rect, color, dirX, 0);
     }, index * STAGGER_MS);
   });
-
   const totalDuration = items.length * STAGGER_MS + DONE_DELAY_MS;
   completionTimer = setTimeout(() => {
     applyNotebookThickness('thin');
@@ -1067,6 +1067,7 @@ function tearAllForTesting() {
     }, 2000);
   }, totalDuration);
 }
+*/
 
 function isStripExposed(li,si) {
   for (let a=0;a<li;a++) {
@@ -1453,9 +1454,11 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   setTimeout(() => playLand(), 120);
 });
 
+/* TEAR ALL stashed
 document.getElementById('tearAllBtn').addEventListener('click', () => {
   tearAllForTesting();
 });
+*/
 
 // ═══════════════════════════════════════
 // INIT
